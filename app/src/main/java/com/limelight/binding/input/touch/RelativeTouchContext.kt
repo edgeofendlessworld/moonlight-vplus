@@ -9,7 +9,7 @@ import com.limelight.Game
 import com.limelight.nvstream.NvConnection
 import com.limelight.nvstream.input.MouseButtonPacket
 import com.limelight.preferences.PreferenceConfiguration
-import com.limelight.ui.CursorView
+import com.limelight.ui.CursorPresentation
 
 class RelativeTouchContext(
     private val conn: NvConnection,
@@ -147,7 +147,7 @@ class RelativeTouchContext(
     /**
      * 初始化本地光标渲染器
      */
-    fun initializeLocalCursorRenderer(cursorOverlay: CursorView, width: Int, height: Int) {
+    fun initializeLocalCursorRenderer(cursorOverlay: CursorPresentation, width: Int, height: Int) {
         val renderer = localCursorRenderer
         if (renderer == null) {
             localCursorRenderer = LocalCursorRenderer(cursorOverlay, width, height)

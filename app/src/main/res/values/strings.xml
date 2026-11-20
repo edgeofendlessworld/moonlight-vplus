@@ -531,6 +531,8 @@
 
     <string name="title_checkbox_absolute_mouse_mode">Remote desktop mouse mode</string>
     <string name="summary_checkbox_absolute_mouse_mode">This can make mouse acceleration behave more naturally for remote desktop usage, but it is incompatible with many games.</string>
+    <string name="title_checkbox_enable_video_surface_cursor">Low-latency cursor on video layer</string>
+    <string name="summary_checkbox_enable_video_surface_cursor">Draws the streamed cursor on a surface composed with the video instead of the window overlay, so pointer motion tracks your finger one frame sooner. Best with a captured host mouse or touchpad; it uses more GPU memory and may not appear over some system dialogs.</string>
     <string name="title_list_mouse_axis_correction">Mouse direction correction</string>
     <string name="summary_list_mouse_axis_correction">Rotate captured mouse movement before sending it to the host. Change this only if an Android device reports rotated mouse axes.</string>
     <string name="mouse_axis_correction_off">Off</string>

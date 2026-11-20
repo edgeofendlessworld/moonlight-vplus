@@ -866,6 +866,11 @@
                     android:summary="@string/summary_checkbox_mouse_nav_buttons"
                     android:defaultValue="false" />
                 <CheckBoxPreference
+                    android:key="checkbox_enable_video_surface_cursor"
+                    android:title="@string/title_checkbox_enable_video_surface_cursor"
+                    android:summary="@string/summary_checkbox_enable_video_surface_cursor"
+                    android:defaultValue="false" />
+                <CheckBoxPreference
                     android:key="checkbox_absolute_mouse_mode"
                     android:title="@string/title_checkbox_absolute_mouse_mode"
                     android:summary="@string/summary_checkbox_absolute_mouse_mode"

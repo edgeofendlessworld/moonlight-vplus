@@ -65,6 +65,8 @@ import com.limelight.preferences.DisplayChoiceLists
 import com.limelight.preferences.GlPreferences
 import com.limelight.preferences.PreferenceConfiguration
 import com.limelight.services.StreamNotificationService
+import com.limelight.ui.CursorPresentation
+import com.limelight.ui.CursorSurfaceOverlay
 import com.limelight.ui.CursorView
 import com.limelight.ui.GameGestures
 import com.limelight.ui.GameMenuAxisSourceLifecycle
@@ -115,6 +117,7 @@ import android.view.View
 import android.view.View.OnGenericMotionListener
 import android.view.View.OnSystemUiVisibilityChangeListener
 import android.view.View.OnTouchListener
+import android.view.Gravity
 import android.view.Window
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -301,6 +304,7 @@ class Game : ThemedComponentActivity(), SurfaceHolder.Callback,
     private var performanceOverlayManager: PerformanceOverlayManager? = null
     private var jitterMonitorManager: JitterMonitorManager? = null
     lateinit var cursorServiceManager: CursorServiceManager
+    private var cursorPresentation: CursorPresentation? = null
     lateinit var floatBallHandler: FloatBallHandler
     private var hostUnlockController: HostUnlockController? = null
     private lateinit var connectionCallbackHandler: ConnectionCallbackHandler
@@ -465,8 +469,9 @@ class Game : ThemedComponentActivity(), SurfaceHolder.Callback,
         installStartHoldWheelOverlay(streamView.parent as FrameLayout)
 
         screenDs5Touchpad.attachIfEnabled(streamView.parent as FrameLayout)
-        val cursorOverlayView = findViewById<CursorView>(R.id.cursorOverlay)
-        panZoomHandler = PanZoomHandler(this, this, streamView, cursorOverlayView, prefConfig)
+        val cursorOverlayView = createCursorPresentation()
+        val cursorLayerView = cursorOverlayView?.presentationView ?: streamView
+        panZoomHandler = PanZoomHandler(this, this, streamView, cursorLayerView, prefConfig)
         remoteImeController = RemoteImeController(this, streamView, panZoomHandler,
             autoShowEnabled = prefConfig.remoteImeAutoShow)
 
@@ -1416,9 +1421,8 @@ class Game : ThemedComponentActivity(), SurfaceHolder.Callback,
         audioVibrationService?.stop()
         cursorServiceManager.destroyLocalCursorRenderers()
         runOnUiThread {
-            val cursorOverlay = findViewById<CursorView>(R.id.cursorOverlay)
-            cursorOverlay?.resetToDefault()
-            cursorOverlay?.hide()
+            cursorPresentation?.resetToDefault()
+            cursorPresentation?.hide()
             notificationOverlayManager.reset()
         }
 
@@ -1908,6 +1912,8 @@ class Game : ThemedComponentActivity(), SurfaceHolder.Callback,
         if (::cursorServiceManager.isInitialized) {
             cursorServiceManager.destroy()
         }
+        (cursorPresentation as? CursorSurfaceOverlay)?.destroy()
+        cursorPresentation = null
         if (::orientationManager.isInitialized) {
             orientationManager.cleanup()
         }
@@ -2302,7 +2308,7 @@ class Game : ThemedComponentActivity(), SurfaceHolder.Callback,
         if (!grab && grabbedInput && ::keyboardInputHandler.isInitialized) {
             keyboardInputHandler.releaseForwardedKeys()
         }
-        if (grab && !prefConfig.enableNativeMousePointer) {
+        if (grab && (!prefConfig.enableNativeMousePointer || prefConfig.enableVideoSurfaceCursor)) {
             inputCaptureProvider.enableCapture()
             if (cursorVisible) {
                 inputCaptureProvider.showCursor()
@@ -2432,11 +2438,18 @@ class Game : ThemedComponentActivity(), SurfaceHolder.Callback,
         prefConfig.enableNativeMousePointer = enable
 
         if (enable) {
-            setInputGrabState(grabbedInput)
+            if (prefConfig.enableVideoSurfaceCursor) {
+                // 视频层光标由客户端自绘，仍需要相对位移，故保持指针捕获。
+                inputCaptureProvider.enableCapture()
+            } else {
+                inputCaptureProvider.disableCapture()
+            }
             cursorVisible = true
             inputCaptureProvider.showCursor()
-            val cursorOverlay = findViewById<CursorView>(R.id.cursorOverlay)
-            cursorOverlay?.hide()
+            setMetaKeyCaptureState(true)
+            if (!prefConfig.enableVideoSurfaceCursor) {
+                cursorPresentation?.hide()
+            }
         } else {
             cursorVisible = false
             inputCaptureProvider.hideCursor()
@@ -3604,6 +3617,54 @@ class Game : ThemedComponentActivity(), SurfaceHolder.Callback,
 
     override fun hideUsbControllerShortcutHint() {
         controllerShortcutHintView?.visibility = View.GONE
+    }
+
+    /**
+     * 把一次相对位移喂给客户端光标，返回新的绝对坐标；未启用「视频层低延迟光标」时返回 null。
+     *
+     * 触摸板路径的渲染器在 [RelativeTouchContext] 内部，物理鼠标/指针捕获路径则走这里，
+     * 两条通道最终都由 [CursorServiceManager] 的同一个 [CursorPresentation] 呈现。
+     */
+    fun updateLocalCursorPosition(deltaX: Float, deltaY: Float): FloatArray? {
+        if (!::cursorServiceManager.isInitialized) return null
+        return cursorServiceManager.updateMouseCursorPosition(deltaX, deltaY)
+    }
+
+    /**
+     * 选择光标呈现层。
+     *
+     * 默认沿用 `activity_game.xml` 里的 [CursorView]（与视频 SurfaceView 分属两条合成路径）。
+     * 打开「视频层低延迟光标」后，改为在同一个 FrameLayout 中插入 [CursorSurfaceOverlay]：
+     * 它是独立 SurfaceView，通过 `setZOrderMediaOverlay(true)` 与视频同处一条合成栈，
+     * 由 SurfaceFlinger 在同一次合成事务里叠加，配合帧合并可少等一次窗口重绘/vsync。
+     */
+    private fun createCursorPresentation(): CursorPresentation? {
+        val legacy = findViewById<CursorView>(R.id.cursorOverlay)
+        if (!prefConfig.enableVideoSurfaceCursor) {
+            cursorPresentation = legacy
+            return legacy
+        }
+
+        val parent = streamView.parent as? FrameLayout ?: run {
+            cursorPresentation = legacy
+            return legacy
+        }
+
+        val overlay = CursorSurfaceOverlay(this)
+        overlay.isClickable = false
+        overlay.isFocusable = false
+        val params = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
+        params.gravity = Gravity.CENTER
+
+        // 插到旧光标层原来的 z 位置：位于视频之上、菜单/控件之下。
+        val index = if (legacy != null) parent.indexOfChild(legacy) else parent.childCount
+        parent.addView(overlay, if (index >= 0) index else parent.childCount, params)
+
+        cursorPresentation = overlay
+        return overlay
     }
 
     private fun installStartHoldWheelOverlay(parent: FrameLayout) {

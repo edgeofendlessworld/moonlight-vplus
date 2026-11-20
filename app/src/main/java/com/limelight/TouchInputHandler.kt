@@ -347,11 +347,29 @@ class TouchInputHandler(private val game: Game) {
                         correctedDeltaY
                     )
                     if (deltaX.toInt() != 0 || deltaY.toInt() != 0) {
-                        if (game.prefConfig.absoluteMouseMode) {
-                            val activeStreamView = game.activeStreamView!!
+                        val activeStreamView = game.activeStreamView
+                        val viewWidth = activeStreamView?.width ?: 0
+                        val viewHeight = activeStreamView?.height ?: 0
+                        // 视频层光标模式下先让客户端光标跟上手指，再用同一个坐标走绝对上报，
+                        // 这样主机合成光标与本地光标不会各走一套积分而互相漂移。
+                        val localPosition =
+                            if (activeStreamView != null && viewWidth > 0 && viewHeight > 0 &&
+                                game.prefConfig.enableVideoSurfaceCursor
+                            ) {
+                                game.updateLocalCursorPosition(deltaX.toFloat(), deltaY.toFloat())
+                            } else null
+                        if (localPosition != null && activeStreamView != null) {
+                            game.conn?.sendMousePosition(
+                                localPosition[0].toInt().toShort(),
+                                localPosition[1].toInt().toShort(),
+                                viewWidth.toShort(), viewHeight.toShort()
+                            )
+                        } else if (game.prefConfig.absoluteMouseMode && activeStreamView != null &&
+                            viewWidth > 0 && viewHeight > 0
+                        ) {
                             game.conn?.sendMouseMoveAsMousePosition(
                                 deltaX, deltaY,
-                                activeStreamView.width.toShort(), activeStreamView.height.toShort()
+                                viewWidth.toShort(), viewHeight.toShort()
                             )
                         } else {
                             game.conn?.sendMouseMove(deltaX, deltaY)

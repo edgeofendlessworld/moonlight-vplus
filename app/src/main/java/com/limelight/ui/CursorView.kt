@@ -9,7 +9,9 @@ import android.view.View
 import androidx.core.content.ContextCompat
 import com.limelight.R
 
-class CursorView : View {
+class CursorView : View, CursorPresentation {
+
+    override val presentationView: View get() = this
 
     // 网络接收到的光标
     private var cursorBitmap: Bitmap? = null
@@ -58,7 +60,7 @@ class CursorView : View {
     /**
      * 设置网络光标 (收到 UDP 包时调用)
      */
-    fun setCursorBitmap(bitmap: Bitmap?, hotX: Int, hotY: Int) {
+    override fun setCursorBitmap(bitmap: Bitmap?, hotX: Int, hotY: Int) {
         this.cursorBitmap = bitmap
         this.pivotX = hotX.toFloat()
         this.pivotY = hotY.toFloat()
@@ -68,28 +70,28 @@ class CursorView : View {
     /**
      * 重置为默认光标 (断连或初始化时调用)
      */
-    fun resetToDefault() {
+    override fun resetToDefault() {
         this.cursorBitmap = null // 清空网络图片，触发 onDraw 里的回退逻辑
         invalidate()
     }
 
-    fun updateCursorPosition(x: Float, y: Float) {
+    override fun updateCursorPosition(x: Float, y: Float) {
         this.cursorX = x
         this.cursorY = y
         invalidate()
     }
 
-    fun show() {
+    override fun show() {
         inputWantsCursor = true
         updateVisibility()
     }
 
-    fun hide() {
+    override fun hide() {
         inputWantsCursor = false
         updateVisibility()
     }
 
-    fun setHostCursorVisible(visible: Boolean) {
+    override fun setHostCursorVisible(visible: Boolean) {
         hostCursorVisible = visible
         updateVisibility()
         invalidate()

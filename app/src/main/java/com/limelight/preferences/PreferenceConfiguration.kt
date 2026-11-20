@@ -84,6 +84,11 @@ class PreferenceConfiguration {
     var enableDoubleClickDrag = false
     var doubleTapTimeThreshold = 0
     var enableLocalCursorRendering = false
+    /**
+     * 把客户端光标画进与视频同栈的独立 Surface，而不是 Activity 窗口层的 CursorView。
+     * 用于外接鼠标：窗口层 overlay 要等一次 vsync + 窗口 buffer 提交，手感上滞后一拍。
+     */
+    var enableVideoSurfaceCursor = false
     var optimizeHardwareTouchpad = false
     /** Percent. 100 keeps the physical touchpad size reported to the host. */
     var hardwareTouchpadPointerSpeedPercent = DEFAULT_HARDWARE_TOUCHPAD_POINTER_SPEED
@@ -416,6 +421,7 @@ class PreferenceConfiguration {
                 )
                 .putBoolean(ENABLE_DOUBLE_CLICK_DRAG_PREF_STRING, enableDoubleClickDrag)
                 .putBoolean(ENABLE_LOCAL_CURSOR_RENDERING_PREF_STRING, enableLocalCursorRendering)
+                .putBoolean(ENABLE_VIDEO_SURFACE_CURSOR_PREF_STRING, enableVideoSurfaceCursor)
                 .putBoolean(OPTIMIZE_HARDWARE_TOUCHPAD_PREF_STRING, optimizeHardwareTouchpad)
                 .putInt(HARDWARE_TOUCHPAD_POINTER_SPEED_PREF_STRING, hardwareTouchpadPointerSpeedPercent)
                 .putFloat(GYRO_SENSITIVITY_MULTIPLIER_PREF_STRING, gyroSensitivityMultiplier)
@@ -609,6 +615,7 @@ class PreferenceConfiguration {
         copy.hevcLowLatencyMode = this.hevcLowLatencyMode
         copy.enableDoubleClickDrag = this.enableDoubleClickDrag
         copy.enableLocalCursorRendering = this.enableLocalCursorRendering
+        copy.enableVideoSurfaceCursor = this.enableVideoSurfaceCursor
         copy.optimizeHardwareTouchpad = this.optimizeHardwareTouchpad
         copy.hardwareTouchpadPointerSpeedPercent = this.hardwareTouchpadPointerSpeedPercent
         copy.gyroToRightStick = this.gyroToRightStick
@@ -639,6 +646,7 @@ class PreferenceConfiguration {
         private const val ENABLE_DOUBLE_CLICK_DRAG_PREF_STRING = "pref_enable_double_click_drag"
         private const val DOUBLE_TAP_TIME_THRESHOLD_PREF_STRING = "seekbar_double_tap_time_threshold"
         private const val ENABLE_LOCAL_CURSOR_RENDERING_PREF_STRING = "pref_enable_local_cursor_rendering"
+        private const val ENABLE_VIDEO_SURFACE_CURSOR_PREF_STRING = "checkbox_enable_video_surface_cursor"
         private const val OPTIMIZE_HARDWARE_TOUCHPAD_PREF_STRING = "checkbox_optimize_hardware_touchpad"
         private const val HARDWARE_TOUCHPAD_POINTER_SPEED_PREF_STRING = "seekbar_hardware_touchpad_pointer_speed"
 
@@ -1000,6 +1008,7 @@ class PreferenceConfiguration {
         private const val DEFAULT_ENABLE_DOUBLE_CLICK_DRAG = false
         private const val DEFAULT_DOUBLE_TAP_TIME_THRESHOLD = 125 // 默认125ms
         private const val DEFAULT_ENABLE_LOCAL_CURSOR_RENDERING = false
+        private const val DEFAULT_ENABLE_VIDEO_SURFACE_CURSOR = false
         private const val DEFAULT_OPTIMIZE_HARDWARE_TOUCHPAD = false
         const val DEFAULT_HARDWARE_TOUCHPAD_POINTER_SPEED = 100
         const val MIN_HARDWARE_TOUCHPAD_POINTER_SPEED = 50
@@ -1593,6 +1602,7 @@ class PreferenceConfiguration {
             config.enableDoubleClickDrag = prefs.getBoolean(ENABLE_DOUBLE_CLICK_DRAG_PREF_STRING, DEFAULT_ENABLE_DOUBLE_CLICK_DRAG)
             config.doubleTapTimeThreshold = prefs.getInt(DOUBLE_TAP_TIME_THRESHOLD_PREF_STRING, DEFAULT_DOUBLE_TAP_TIME_THRESHOLD)
             config.enableLocalCursorRendering = prefs.getBoolean(ENABLE_LOCAL_CURSOR_RENDERING_PREF_STRING, DEFAULT_ENABLE_LOCAL_CURSOR_RENDERING)
+            config.enableVideoSurfaceCursor = prefs.getBoolean(ENABLE_VIDEO_SURFACE_CURSOR_PREF_STRING, DEFAULT_ENABLE_VIDEO_SURFACE_CURSOR)
             config.optimizeHardwareTouchpad = prefs.getBoolean(OPTIMIZE_HARDWARE_TOUCHPAD_PREF_STRING, DEFAULT_OPTIMIZE_HARDWARE_TOUCHPAD)
             config.hardwareTouchpadPointerSpeedPercent = prefs.getInt(
                 HARDWARE_TOUCHPAD_POINTER_SPEED_PREF_STRING,

@@ -2,10 +2,10 @@ package com.limelight.binding.input.touch
 
 import android.os.Handler
 import android.os.Looper
-import com.limelight.ui.CursorView
+import com.limelight.ui.CursorPresentation
 
 class LocalCursorRenderer(
-    private var cursorView: CursorView?,
+    private var cursorView: CursorPresentation?,
     viewWidth: Int,
     viewHeight: Int
 ) {
@@ -13,6 +13,9 @@ class LocalCursorRenderer(
     private var viewHeight = maxOf(1, viewHeight)
     private var cursorX = this.viewWidth / 2f
     private var cursorY = this.viewHeight / 2f
+
+    /** 当前是否已向呈现层请求显示，用于让 [show]/[hide] 幂等。 */
+    private var shown = false
     private val uiHandler = Handler(Looper.getMainLooper())
 
     init {
@@ -47,28 +50,44 @@ class LocalCursorRenderer(
         postPosition()
     }
 
+    /**
+     * 显示光标。幂等：物理鼠标每个事件都会调一次，重复投递会白白占用主线程队列。
+     */
     fun show() {
-        uiHandler.post {
-            cursorView?.let {
-                it.show()
-                it.updateCursorPosition(cursorX, cursorY)
-            }
+        if (shown) return
+        val view = cursorView ?: return
+        shown = true
+        val reveal = Runnable {
+            view.show()
+            view.updateCursorPosition(cursorX, cursorY)
         }
+        if (view.requiresMainThreadUpdates) uiHandler.post(reveal) else reveal.run()
     }
 
     fun hide() {
-        uiHandler.post { cursorView?.hide() }
+        if (!shown) return
+        shown = false
+        val view = cursorView ?: return
+        if (view.requiresMainThreadUpdates) uiHandler.post { view.hide() } else view.hide()
     }
 
     fun destroy() {
         val view = cursorView
         cursorView = null
-        uiHandler.post { view?.hide() }
+        shown = false
+        if (view == null) return
+        if (view.requiresMainThreadUpdates) uiHandler.post { view.hide() } else view.hide()
     }
 
     fun getCursorAbsolutePosition(): FloatArray = floatArrayOf(cursorX, cursorY)
 
     private fun postPosition() {
-        uiHandler.post { cursorView?.updateCursorPosition(cursorX, cursorY) }
+        val view = cursorView ?: return
+        if (view.requiresMainThreadUpdates) {
+            uiHandler.post { view.updateCursorPosition(cursorX, cursorY) }
+        } else {
+            // 视频层光标自带渲染线程：直接投递，省掉一次主线程往返。
+            view.updateCursorPosition(cursorX, cursorY)
+        }
     }
 }
